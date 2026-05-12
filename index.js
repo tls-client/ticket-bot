@@ -25,6 +25,7 @@ const client = new Client({
 
 const TOKEN = process.env.TOKEN;
 const CATEGORY_ID = process.env.CATEGORY_ID;
+const ARCHIVE_CATEGORY_ID = process.env.ARCHIVE_CATEGORY_ID;
 const STAFF_ROLE_ID = process.env.STAFF_ROLE_ID;
 
 // ユーザーのアクティブチケットを追跡
@@ -175,7 +176,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     await interaction.reply({
-      content: "3秒後にチケットを削除します",
+      content: "3秒後にチケットをアーカイブに移動します",
       ephemeral: true
     });
 
@@ -187,21 +188,32 @@ client.on("interactionCreate", async interaction => {
       }
     }
 
-    setTimeout(() => {
-      interaction.channel.delete().catch(() => {});
+    setTimeout(async () => {
+      try {
+        // アーカイブカテゴリに移動し、権限をスタッフのみに変更
+        await interaction.channel.setParent(ARCHIVE_CATEGORY_ID);
+        await interaction.channel.lockPermissions();
+        
+        // チケット発行者の権限を削除
+        await interaction.channel.permissionOverwrites.edit(interaction.channel.guild.id, {
+          ViewChannel: false
+        });
+        
+        // アーカイブ完了メッセージ
+        await interaction.channel.send({
+          embeds: [
+            new EmbedBuilder()
+              .setColor("#5865F2")
+              .setTitle("チケットアーカイブ完了")
+              .setDescription("このチケットはアーカイブされました。")
+          ]
+        });
+      } catch (error) {
+        console.error("Archive error:", error);
+      }
     }, 3000);
   }
 });
 
-// チケットチャンネルが削除されたときの処理
-client.on("channelDelete", async channel => {
-  // 削除されたチャンネルがチケットチャンネルの場合、activeTicketsから削除
-  for (const [userId, ticketData] of activeTickets.entries()) {
-    if (ticketData.channelId === channel.id) {
-      activeTickets.delete(userId);
-      break;
-    }
-  }
-});
 
 client.login(TOKEN);

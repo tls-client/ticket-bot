@@ -45,7 +45,6 @@ client.on("messageCreate", async message => {
       "• スタッフへのメンションは控えてください\n" +
       "• 頻繁な催促は回答を遅らせる可能性があります"
     )
-    .setImage("https://i.imgur.com/4M34hi2.png");
 
   const select = new StringSelectMenuBuilder()
     .setCustomId("ticket_create")

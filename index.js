@@ -36,12 +36,12 @@ client.on("messageCreate", async message => {
   if (message.content !== "!panel") return;
 
   const embed = new EmbedBuilder()
-    .setColor("#2b2d31")
+    .setColor("#5865F2")
     .setTitle("チケットを開く")
     .setDescription(
       "サポートが必要な場合は下からチケットを作成してください。\n\n" +
       "**ルール**\n" +
-      "• 1人1チケットまで\n" +
+      "• チケット作成後スタッフ対応までお待ちください\n" +
       "• スタッフへの催促禁止"
     );
 
@@ -102,28 +102,46 @@ client.on("interactionCreate", async interaction => {
       .setLabel("Close Ticket")
       .setStyle(ButtonStyle.Danger);
 
-    const row = new ActionRowBuilder().addComponents(closeBtn);
+    const closeRow = new ActionRowBuilder().addComponents(closeBtn);
 
     await ticket.send({
       content: `<@${interaction.user.id}> <@&${STAFF_ROLE_ID}>`,
       embeds: [
         new EmbedBuilder()
-          .setColor("#2b2d31")
+          .setColor("#5865F2")
           .setTitle("チケット作成完了")
           .setDescription("スタッフの対応をお待ちください。")
       ],
-      components: [row]
+      components: [closeRow]
     });
 
     await interaction.editReply({
       content: `作成完了: ${ticket}`
     });
 
+    await interaction.message.edit({
+      embeds: interaction.message.embeds,
+      components: [
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId("ticket_create")
+            .setPlaceholder("チケットを作成")
+            .addOptions([
+              {
+                label: "チケット作成",
+                value: "ticket",
+                description: "サポートチケットを作成"
+              }
+            ])
+        )
+      ]
+    });
+
   } catch (error) {
     console.error(error);
 
     await interaction.editReply({
-      content: "チケット作成に失敗しました"
+      content: `失敗: ${error.message}`
     });
   }
 });

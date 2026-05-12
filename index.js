@@ -27,7 +27,7 @@ const TOKEN = process.env.TOKEN;
 const CATEGORY_ID = process.env.CATEGORY_ID;
 const STAFF_ROLE_ID = process.env.STAFF_ROLE_ID;
 
-client.once("ready", () => {
+client.once("clientReady", () => {
   console.log(`${client.user.tag} 起動完了`);
 });
 
@@ -39,26 +39,20 @@ client.on("messageCreate", async message => {
     .setColor("#2b2d31")
     .setTitle("チケットを開く")
     .setDescription(
-      "お問い合わせ内容の件名を選択してください。\n\n" +
+      "サポートが必要な場合は下からチケットを作成してください。\n\n" +
       "**ルール**\n" +
-      "• 1つの件名につき作成できるチケットは1つまでです\n" +
-      "• スタッフへのメンションは控えてください\n" +
-      "• 頻繁な催促は回答を遅らせる可能性があります"
-    )
+      "• 1人1チケットまで\n" +
+      "• スタッフへの催促禁止"
+    );
 
   const select = new StringSelectMenuBuilder()
     .setCustomId("ticket_create")
-    .setPlaceholder("新しいチケットを作成する")
+    .setPlaceholder("チケットを作成")
     .addOptions([
       {
-        label: "問い合わせ",
-        value: "support",
-        description: "サポート用チケット"
-      },
-      {
-        label: "報告",
-        value: "report",
-        description: "報告用チケット"
+        label: "チケット作成",
+        value: "ticket",
+        description: "サポートチケットを作成"
       }
     ]);
 
@@ -74,54 +68,64 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isStringSelectMenu()) return;
   if (interaction.customId !== "ticket_create") return;
 
-  const ticket = await interaction.guild.channels.create({
-    name: `ticket-${interaction.user.username}`,
-    type: ChannelType.GuildText,
-    parent: CATEGORY_ID,
-    permissionOverwrites: [
-      {
-        id: interaction.guild.id,
-        deny: [PermissionsBitField.Flags.ViewChannel]
-      },
-      {
-        id: interaction.user.id,
-        allow: [
-          PermissionsBitField.Flags.ViewChannel,
-          PermissionsBitField.Flags.SendMessages
-        ]
-      },
-      {
-        id: STAFF_ROLE_ID,
-        allow: [
-          PermissionsBitField.Flags.ViewChannel,
-          PermissionsBitField.Flags.SendMessages
-        ]
-      }
-    ]
-  });
+  await interaction.deferReply({ ephemeral: true });
 
-  const closeBtn = new ButtonBuilder()
-    .setCustomId("close_ticket")
-    .setLabel("Close Ticket")
-    .setStyle(ButtonStyle.Danger);
+  try {
+    const ticket = await interaction.guild.channels.create({
+      name: `ticket-${interaction.user.username}`,
+      type: ChannelType.GuildText,
+      parent: CATEGORY_ID,
+      permissionOverwrites: [
+        {
+          id: interaction.guild.id,
+          deny: [PermissionsBitField.Flags.ViewChannel]
+        },
+        {
+          id: interaction.user.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages
+          ]
+        },
+        {
+          id: STAFF_ROLE_ID,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages
+          ]
+        }
+      ]
+    });
 
-  const row = new ActionRowBuilder().addComponents(closeBtn);
+    const closeBtn = new ButtonBuilder()
+      .setCustomId("close_ticket")
+      .setLabel("Close Ticket")
+      .setStyle(ButtonStyle.Danger);
 
-  await ticket.send({
-    content: `<@${interaction.user.id}> <@&${STAFF_ROLE_ID}>`,
-    embeds: [
-      new EmbedBuilder()
-        .setColor("#2b2d31")
-        .setTitle("チケット作成完了")
-        .setDescription("スタッフの対応をお待ちください。")
-    ],
-    components: [row]
-  });
+    const row = new ActionRowBuilder().addComponents(closeBtn);
 
-  await interaction.reply({
-    content: `作成完了: ${ticket}`,
-    ephemeral: true
-  });
+    await ticket.send({
+      content: `<@${interaction.user.id}> <@&${STAFF_ROLE_ID}>`,
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#2b2d31")
+          .setTitle("チケット作成完了")
+          .setDescription("スタッフの対応をお待ちください。")
+      ],
+      components: [row]
+    });
+
+    await interaction.editReply({
+      content: `作成完了: ${ticket}`
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    await interaction.editReply({
+      content: "チケット作成に失敗しました"
+    });
+  }
 });
 
 client.on("interactionCreate", async interaction => {
@@ -129,12 +133,12 @@ client.on("interactionCreate", async interaction => {
   if (interaction.customId !== "close_ticket") return;
 
   await interaction.reply({
-    content: "3秒後に削除します",
+    content: "3秒後にチケットを削除します",
     ephemeral: true
   });
 
   setTimeout(() => {
-    interaction.channel.delete();
+    interaction.channel.delete().catch(() => {});
   }, 3000);
 });
 

@@ -164,15 +164,27 @@ client.on("interactionCreate", async interaction => {
   
   // Button handling
   if (interaction.isButton() && interaction.customId === "close_ticket") {
+    // スタッフ権限チェック
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    if (!member.roles.cache.has(STAFF_ROLE_ID)) {
+      await interaction.reply({
+        content: "チケットを閉じられるのはスタッフのみです。",
+        ephemeral: true
+      });
+      return;
+    }
+
     await interaction.reply({
       content: "3秒後にチケットを削除します",
       ephemeral: true
     });
 
     // チケットを閉じる前にactiveTicketsから削除
-    const ticketData = activeTickets.get(interaction.user.id);
-    if (ticketData && ticketData.channelId === interaction.channel.id) {
-      activeTickets.delete(interaction.user.id);
+    for (const [userId, ticketData] of activeTickets.entries()) {
+      if (ticketData.channelId === interaction.channel.id) {
+        activeTickets.delete(userId);
+        break;
+      }
     }
 
     setTimeout(() => {
